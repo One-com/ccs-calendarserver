@@ -1760,40 +1760,41 @@ class CommonHome(SharingHomeMixIn):
         else:
             raise AssertionError("One of rid or uid must be set")
 
-        results = []
         # Try to fetch a result from the query cache first
         for cacheKey in cacheKeys:
             result = (yield queryCacher.get(cacheKey))
             if result is not None:
-                results.append(result)
+                break
+        else:
+            result = None
 
         # If nothing in the cache, do the SQL query and cache the result
-        if len(results) == 0:
+        if result is None:
             results = yield Select(
                 cls.homeColumns(),
                 From=cls._homeSchema,
                 Where=query,
             ).on(txn)
 
-        if len(results) > 1:
-            # Pick the best one in order: normal, disabled and external
-            byStatus = dict([(item[cls.homeColumns().index(cls._homeSchema.STATUS)], item) for item in results])
-            result = byStatus.get(_HOME_STATUS_NORMAL)
-            if result is None:
-                result = byStatus.get(_HOME_STATUS_DISABLED)
-            if result is None:
-                result = byStatus.get(_HOME_STATUS_EXTERNAL)
-        elif results:
-            result = results[0]
-        else:
-            result = None
+            if len(results) > 1:
+                # Pick the best one in order: normal, disabled and external
+                byStatus = dict([(item[cls.homeColumns().index(cls._homeSchema.STATUS)], item) for item in results])
+                result = byStatus.get(_HOME_STATUS_NORMAL)
+                if result is None:
+                    result = byStatus.get(_HOME_STATUS_DISABLED)
+                if result is None:
+                    result = byStatus.get(_HOME_STATUS_EXTERNAL)
+            elif results:
+                result = results[0]
+            else:
+                result = None
 
-        if result and queryCacher:
-            if rid is not None:
-                cacheKey = cacheKeys[0]
-            elif uid is not None:
-                cacheKey = queryCacher.keyForHomeWithUID(cls._homeType, uid, result[cls.homeColumns().index(cls._homeSchema.STATUS)])
-            yield queryCacher.set(cacheKey, result)
+            if result and queryCacher:
+                if rid is not None:
+                    cacheKey = cacheKeys[0]
+                elif uid is not None:
+                    cacheKey = queryCacher.keyForHomeWithUID(cls._homeType, uid, result[cls.homeColumns().index(cls._homeSchema.STATUS)])
+                yield queryCacher.set(cacheKey, result)
 
         if result:
             # Return object that already exists in the store
