@@ -1754,9 +1754,6 @@ class CommonHome(SharingHomeMixIn):
                 if txn._allowDisabled:
                     statusSet += (_HOME_STATUS_DISABLED,)
                 query = query.And(cls._homeSchema.STATUS.In(statusSet))
-                if queryCacher:
-                    for item in statusSet:
-                        cacheKeys.append(queryCacher.keyForHomeWithUID(cls._homeType, uid, item))
         else:
             raise AssertionError("One of rid or uid must be set")
 
